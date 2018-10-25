@@ -1,0 +1,9 @@
+{
+  "compilerOptions": {
+    "sourceMap": true,
+    "target": "es5",
+    "outDir": ".out",
+    "lib": ["es5", "es6", "es2017", "dom"],
+    "allowSyntheticDefaultImports": true
+  }
+}
