@@ -1,8 +1,15 @@
 import * as d3 from "d3"; //todo check minimal import
-import {IDetails, IGraph, IPickedColors, ISankeyGraph, SvgSelection} from "./sankey.model";
+import {
+    IDetails,
+    IGraph, INode,
+    IPickedColors,
+    ISankeyGraph,
+    ISankeyNode,
+    SvgSelection
+} from "./sankey.model";
 import * as d3_sankey from "d3-sankey";
 import {ConnectionsDiagramHelper} from "../color";
-import {details} from "../data/data";
+import {sidePaddingMap} from "./sankey.constants";
 
 export default class Sankey {
 
@@ -12,6 +19,7 @@ export default class Sankey {
     private graph: ISankeyGraph;
     private colors: string[];
     private pickedColors: IPickedColors = {};
+    private nodePadding: number = 4;
 
     constructor(graph: IGraph, private details: IDetails, node: Element ) {
         this.width = node.clientWidth;
@@ -29,10 +37,26 @@ export default class Sankey {
     }
 
     private createGraph(data: IGraph): ISankeyGraph {
+        const groupCount = this.getGroupCount();
+        const sidePadding = sidePaddingMap[groupCount];
+
         return <ISankeyGraph>d3_sankey.sankey()
-            .extent([[50, 10],[ this.width - 100, this.height - 20]])
-            .nodeId((d: any) => d.id)
+            .extent([
+                [sidePadding, this.nodePadding],
+                [ this.width - 2 * sidePadding, this.height - 2 * this.nodePadding]])
+            .nodeId((d: ISankeyNode) => d.id)
             .nodeAlign(d3_sankey.sankeyCenter)(data);
+    }
+
+    private getGroupCount() {
+        return Object.keys(this.details).reduce((accumulator, nodeId) => {
+            const groupName = nodeId.substr(0, nodeId.lastIndexOf('_'));
+            if (accumulator.indexOf(groupName) < 0) {
+                accumulator.push(groupName);
+            }
+
+            return accumulator;
+        }, []).length;
     }
 
     private getColor(nodeId: string): string {

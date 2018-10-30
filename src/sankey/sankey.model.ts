@@ -22,6 +22,6 @@ export interface IDetails {
 export type SvgSelection = Selection<SVGSVGElement, {}, null, undefined>;
 
 export type IGraph = SankeyGraph<INode, ILink>
-export type ISankeyNode = SankeyNodeMinimal<INode, ILink>;
-export type ISankeyLink = SankeyLinkMinimal<INode, ILink>;
+export type ISankeyNode = INode & SankeyNodeMinimal<INode, ILink>;
+export type ISankeyLink = ILink & SankeyLinkMinimal<INode, ILink>;
 export type ISankeyGraph = SankeyGraph<ISankeyNode, ISankeyLink>
