@@ -1,1 +1,1 @@
-export { default as Sankey } from './sankey';
+export { default as SankeyComponent } from './sankey.component';

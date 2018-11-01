@@ -1,27 +1,56 @@
 import {Selection} from "d3-selection";
-import {SankeyGraph, SankeyLinkMinimal, SankeyNodeMinimal} from "d3-sankey";
 
 export interface INode {
-    id: string
+    id: string;
+    name: string;
+    group: string;
+    value: number;
+    sourceLinks?: any[];
+    targetLinks?: any[];
+    depth?: number;
+    x0?: number;
+    y0?: number;
+    x1?: number;
+    y1?: number;
+    percentage?: number;
 }
 
 export interface ILink {
-    target: string;
+    target: string | INode;
+    source: string | INode;
     value: number;
-    source: string;
+    x0?: number;
+    y0?: number;
+    x1?: number;
+    y1?: number;
+    x2?: number;
+    y2?: number;
+    x3?: number;
+    y3?: number;
 }
 
-export interface IPickedColors {
-    [key: string]: string
+export interface IGroup {
+    index: number;
+    value: number;
 }
 
-export interface IDetails {
+export interface IGraph {
+    groups: {
+        [key: string]:IGroup
+    };
+    nodes: INode[];
+    links: ILink[];
+}
 
+export interface IDimensions {
+    x0: number;
+    y0: number;
+    x1: number;
+    y1: number
 }
 
 export type SvgSelection = Selection<SVGSVGElement, {}, null, undefined>;
 
-export type IGraph = SankeyGraph<INode, ILink>
-export type ISankeyNode = INode & SankeyNodeMinimal<INode, ILink>;
-export type ISankeyLink = ILink & SankeyLinkMinimal<INode, ILink>;
-export type ISankeyGraph = SankeyGraph<ISankeyNode, ISankeyLink>
+export interface IPickedColors {
+    [key: string]: string
+}
