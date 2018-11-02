@@ -4,15 +4,15 @@ export const sidePaddingByGroup = {
     4: 150,
 };
 
-export enum Side {
+export enum NodeSide {
     left,
     right
 }
 
 export const textPositionsByGroup = {
-    2: [Side.left, Side.right],
-    3: [Side.left, Side.right, Side.right],
-    4: [Side.left, Side.left, Side.right, Side.right]
+    2: [NodeSide.left, NodeSide.right],
+    3: [NodeSide.left, NodeSide.right, NodeSide.right],
+    4: [NodeSide.left, NodeSide.left, NodeSide.right, NodeSide.right]
 };
 
 export const colorsMap = {

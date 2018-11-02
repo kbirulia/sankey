@@ -1,22 +1,23 @@
 import * as d3 from "d3";//todo check minimal import
-import {IGraph, IPickedColors, SvgSelection} from "./sankey.model";
+import {IGraph, ILink, INode, IPickedColors, TSvgSelection} from "./sankey.model";
 import {
     colorsMap,
     nodePadding, nodeWidth,
-    Side,
+    NodeSide,
     sidePaddingByGroup,
     textPositionsByGroup
 } from "./sankey.constants";
 import {ConnectionsDiagramHelper} from "../color";
 import { Sankey } from "./sankey";
 import {BaseType} from "d3";
+import {selectedData} from "../data/selected";
 // import {temporaryFilter} from "../utils/temporaryFilter";
 
 export default class SankeyComponent {
 
     private width: number;
     private height: number;
-    private svg: SvgSelection;
+    private svg: TSvgSelection;
     private colors: string[] = [];
     private pickedColors: IPickedColors = {};
     private sidePadding: number;
@@ -24,6 +25,8 @@ export default class SankeyComponent {
     private isNodeSelected: boolean = false;
     private _sankey: Sankey;
     private _groupCount: number;
+    private _selectedSankey: Sankey | null = null;
+    private _selectedNodeId: string;
 
     constructor(graph: IGraph, node: Element) {
         this.width = node.clientWidth;
@@ -38,16 +41,20 @@ export default class SankeyComponent {
     }
 
     get groups() {
-        return this._sankey.groups;
+        return this._selectedSankey
+            ? this._selectedSankey.groups
+            : this._sankey.groups;
     }
 
     get nodes() {
-        return this._sankey.nodes;
-    }
+        return this._selectedSankey
+            ? this._selectedSankey.nodes
+            : this._sankey.nodes;    }
 
     get links() {
-        return this._sankey.links;
-    }
+        return this._selectedSankey
+            ? this._selectedSankey.links
+            : this._sankey.links;    }
 
     private initSankeyDimensions() {
         this._groupCount = Object.keys(this.groups).length;
@@ -93,16 +100,16 @@ export default class SankeyComponent {
     }
 
     private drawNodes() {
-        const { nodes, groups } = this;
+        const { nodes } = this;
 
         // draw nodes
         const nodeBlock = this.svg.append("g")
             .classed("nodes", true)
-            // .on('click', () => {
-            //     if (d3.event.target.tagName === "rect") {
-            //         this.handleNodeClick(d3.event.target.dataset.id);
-            //     }
-            // });
+            .on('click', () => {
+                if (d3.event.target.tagName === "rect") {
+                    this.handleNodeClick(d3.event.target.dataset.id);
+                }
+            });
 
         const nodeGroups = nodeBlock
             .selectAll("g")
@@ -145,11 +152,12 @@ export default class SankeyComponent {
             });
 
         const groupCount = this._groupCount;
+
         //set node label position
         text.attr("x", function (node){
             const side = textPositionsByGroup[groupCount][node.depth];
 
-            return side === Side.left
+            return side === NodeSide.left
                 ? node.x0 - (<SVGTSpanElement>this).getComputedTextLength() - 5
                 : node.x1 + 5;
         })
@@ -157,17 +165,23 @@ export default class SankeyComponent {
     }
 
     //todo apply real handler
-    // private handleNodeClick(nodeId) {
-    //     if (this.isNodeSelected) {
-    //
-    //     }
-    //     this.svg.selectAll("*").remove();
-    //
-    //     const selected = temporaryFilter(this.sankey.data, this.sankey.details, nodeId);
-    //
-    //     this.sankey.updateData(selected.data, selected.details);
-    //     this.draw();
-    // }
+    private handleNodeClick(nodeId) {
+        if (this._selectedNodeId === nodeId) {
+            this._selectedNodeId = "";
+            this._selectedSankey = null;
+            this.svg.selectAll("*").remove();//todo animation
+            this.draw();//todo animation
+        }
+        this.svg.selectAll("*").remove();//todo animation
+
+        this._selectedSankey = new Sankey(selectedData);
+
+        this._selectedSankey.cloneConfig(this._sankey);
+
+        this._selectedSankey.compute();
+
+        this.draw();
+    }
 
     private drawLinks() {
 
@@ -180,33 +194,28 @@ export default class SankeyComponent {
             .enter()
             .append("path")
             .classed("link", true)
-            .attr("d", link => this.curveLink(link))
-            .attr("fill", "none")
-            .attr("stroke", link => this.getColor(link.source.id))
-            // .attr("stroke-width", d => d.width)
+            .attr("d", this.curveLink)
+            .attr("fill", link => this.getColor((link.source as INode).id))
             .attr("opacity", 0.3);
     }
 
     private curveLink(link) {
-        const linkWidth = link.x2 - link.x0;
-        const dx = linkWidth / 3;
+        const x = [link.x0, link.x1];
 
-        const path1 =  d3.line().curve(d3.curveBasis)([
-            [link.x0, link.y0],
-            [link.x0 + dx, link.y0],
-            [link.x0 + 2*dx, link.y2],
-            [link.x2, link.y2]
-        ]);
+        const sourceY = [link.y0, link.y1];
+        const targetY = [link.y2, link.y3];
 
-        const path2 =  d3.line().curve(d3.curveBasis)([
-            [link.x1, link.y1],
-            [link.x1 + dx, link.y1],
-            [link.x1 + 2*dx, link.y3],
-            [link.x3, link.y3]
-        ]);
+        const y = <[number, number][]>[sourceY, sourceY, targetY, targetY];
 
-        console.log(path1, path2);
-        return path1;
+        const xGenerator = d3.scaleLinear()
+            .range(x)
+            .domain([0, y.length - 1]);
+
+    return d3.area()
+            .x((d, i) => xGenerator(i))
+            .y1(d => d[0])
+            .y0(d => d[1])
+            .curve(d3.curveBasis)(y);
     }
 
     public draw() {

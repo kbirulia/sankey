@@ -1,9 +1,9 @@
-import {descending, min, sum} from "d3-array";
-import {map, nest} from "d3-collection";
+import {map} from "d3-collection";
 import {IDimensions, IGraph, INode} from "./sankey.model";
 import {descendingBy} from "../utils/descendingBy";
 
 export class Sankey {
+
     private _graph: IGraph;
     private _groupCount: number;
     private _nodeWidth: number = 24;
@@ -32,6 +32,18 @@ export class Sankey {
         return this._graph.links;
     }
 
+    public getNodePadding(): number {
+        return this._nodePadding;
+    }
+
+    public getDimensions(): IDimensions {
+        return this._dimensions;
+    }
+
+    public getNodeWidth(): number {
+        return this._nodeWidth;
+    }
+
     public nodeWidth(value: number): Sankey {
         this._nodeWidth = value;
 
@@ -55,6 +67,12 @@ export class Sankey {
         this.computeLinks();
 
         return this._graph;
+    }
+
+    public cloneConfig(sankey: Sankey) {
+        this.nodePadding(sankey.getNodePadding())
+            .nodeWidth(sankey.getNodeWidth())
+            .extent(sankey.getDimensions())
     }
 
     private getSortedGroups() {
@@ -137,20 +155,22 @@ export class Sankey {
 
             node.sourceLinks.forEach(link => {
                 const linkHeight = link.value / node.value * nodeHeight;
-                link.x0 = link.x1 = sourceX;
+                link.x0 = sourceX;
                 link.y0 = sourceY;
 
-                link.y1 = link.y0 + linkHeight;
-                sourceY = link.y1;
+                sourceY = link.y0 + linkHeight;
+
+                link.y1 = sourceY;
             });
 
             node.targetLinks.forEach(link => {
                 const linkHeight = link.value / node.value * nodeHeight;
-                link.x2 = link.x3 = targetX;
+                link.x1 = targetX;
                 link.y2 = targetY;
 
-                link.y3 = link.y2 + linkHeight;
-                targetY = link.y3;
+                targetY = link.y2 + linkHeight;
+
+                link.y3 = targetY;
             })
         })
     }

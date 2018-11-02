@@ -16,7 +16,7 @@ module.exports = {
     module: {
         rules: [
             {
-                test: /\.tsx?$/,
+                test: /\.ts$/,
                 loader: 'ts-loader',
                 options: {
                     transpileOnly: true // IMPORTANT! use transpileOnly mode to speed-up compilation

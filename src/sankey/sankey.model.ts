@@ -1,4 +1,4 @@
-import {Selection} from "d3-selection";
+import {BaseType, Selection} from "d3-selection";
 
 export interface INode {
     id: string;
@@ -23,9 +23,7 @@ export interface ILink {
     y0?: number;
     x1?: number;
     y1?: number;
-    x2?: number;
     y2?: number;
-    x3?: number;
     y3?: number;
 }
 
@@ -49,7 +47,7 @@ export interface IDimensions {
     y1: number
 }
 
-export type SvgSelection = Selection<SVGSVGElement, {}, null, undefined>;
+export type TSvgSelection = Selection<BaseType, {}, null, undefined>;
 
 export interface IPickedColors {
     [key: string]: string
