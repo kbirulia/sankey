@@ -17,7 +17,8 @@ export const textPositionsByGroup = {
 
 export const colorsMap = {
     name_label: '#9b9b9b',
-    count_label: '#5e40bf'
+    count_label: '#5e40bf',
+    default: '#373a3c'
 };
 
 export const nodePadding = 8;

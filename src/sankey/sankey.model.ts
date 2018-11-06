@@ -19,12 +19,17 @@ export interface ILink {
     target: string | INode;
     source: string | INode;
     value: number;
+    id?: string;
     x0?: number;
     y0?: number;
     x1?: number;
     y1?: number;
     y2?: number;
     y3?: number;
+}
+
+export interface IGroups {
+    [key: string]: IGroup
 }
 
 export interface IGroup {

@@ -1,9 +1,8 @@
-import {map} from "d3-collection";
-import {IDimensions, IGraph, INode} from "./sankey.model";
-import {descendingBy} from "../utils/descendingBy";
+import { map } from "d3-collection";
+import { IDimensions, IGraph, IGroups, ILink, INode } from "./sankey.model";
+import { descendingBy } from "../utils/descendingBy";
 
 export class Sankey {
-
     private _graph: IGraph;
     private _groupCount: number;
     private _nodeWidth: number = 24;
@@ -20,15 +19,15 @@ export class Sankey {
         this._graph = JSON.parse(JSON.stringify(graph));
     }
 
-    get groups() {
+    get groups(): IGroups {
         return this._graph.groups;
     }
 
-    get nodes() {
+    get nodes(): INode[] {
         return this._graph.nodes;
     }
 
-    get links() {
+    get links(): ILink[] {
         return this._graph.links;
     }
 
@@ -61,21 +60,19 @@ export class Sankey {
         return this;
     }
 
-    public compute() {
+    public compute(): void {
         this.computeNodes();
         this.computeNodeLinks();
         this.computeLinks();
-
-        return this._graph;
     }
 
-    public cloneConfig(sankey: Sankey) {
+    public cloneConfig(sankey: Sankey): void {
         this.nodePadding(sankey.getNodePadding())
             .nodeWidth(sankey.getNodeWidth())
             .extent(sankey.getDimensions())
     }
 
-    private getSortedGroups() {
+    private getSortedGroups(): INode[][] {
         const groups = this._graph.nodes
             .reduce((columns, node) => {
                 (columns[node.depth] = columns[node.depth] || []).push(node);
@@ -89,7 +86,7 @@ export class Sankey {
         return groups;
     }
 
-    private computeNodes() {
+    private computeNodes(): void {
         const {nodes, groups} = this._graph;
         const { x0, x1 } = this._dimensions;
 
@@ -110,7 +107,7 @@ export class Sankey {
         this.computeNodesY()
     }
 
-    private computeNodesY() {
+    private computeNodesY(): void {
         const { y1, y0 } = this._dimensions;
 
         const chartHeight = y1 - y0;
@@ -128,11 +125,12 @@ export class Sankey {
         });
     }
 
-    private computeNodeLinks() {
+    private computeNodeLinks(): void {
         const {nodes, links} = this._graph;
 
         const nodeMap = map(nodes, node => node.id);
         links.forEach(link => {
+            link.id = `${link.source}_${link.target}`;
             const source = link.source = nodeMap.get(<string>link.source);
             const target = link.target = nodeMap.get(<string>link.target);
             source.sourceLinks.push(link);
@@ -140,7 +138,7 @@ export class Sankey {
         });
     }
 
-    private computeLinks() {
+    private computeLinks(): void {
         const { nodes } = this._graph;
 
         nodes.forEach(node => {

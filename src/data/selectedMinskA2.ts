@@ -1,105 +1,98 @@
-export const selectedData = {
+export const selectedMinskA2 = {
     groups: {
         city: {
             index: 0,
-            value: 1337
+            value: 3442
         },
         seniority_level: {
             index: 1,
-            value: 3442
+            value: 2994
         },
         english_level: {
             index: 2,
-            value: 1337
+            value: 1150
         },
     },
     nodes: [
         {
             id: "city_Minsk",
             name: "Minsk",
-            value: 1150,
+            value: 2994,
             group: "city"
         },
         {
             id: "city_Gomel",
             name: "Gomel",
-            value: 114,
+            value: 278,
             group: "city"
         },
         {
             id: "city_Grodno",
             name: "Grodno",
-            value: 50,
+            value: 111,
             group: "city"
         },
         {
             id: "city_Brest",
             name: "Brest",
-            value: 23,
+            value: 59,
             group: "city"
         },
         {
             id: "seniority_level_A1",
             name: "A1",
-            value: 410,
+            value: 355,
             group: "seniority_level"
         },
         {
             id: "seniority_level_A2",
             name: "A2",
-            value: 1337,
+            value: 1150,
             group: "seniority_level"
         },
         {
             id: "seniority_level_A3",
             name: "A3",
-            value: 1059,
+            value: 913,
             group: "seniority_level"
         },
         {
             id: "seniority_level_A4",
             name: "A4",
-            value: 636,
+            value: 576,
             group: "seniority_level"
         },
         {
             id: "english_level_B1",
             name: "B1",
-            value: 765,
+            value: 657,
             group: "english_level"
         },
         {
             id: "english_level_B2",
             name: "B2",
-            value: 450,
+            value: 387,
             group: "english_level"
         },
         {
             id: "english_level_C1",
             name: "C1",
-            value: 105,
+            value: 92,
             group: "english_level"
         },
         {
             id: "english_level_C2",
             name: "C2",
-            value: 17,
+            value: 14,
             group: "english_level"
         }
     ],
     links: [
         {source: "city_Minsk", target: "seniority_level_A2", value: 1150},
 
-        {source: "city_Gomel", target: "seniority_level_A2", value: 114},
-
-        {source: "city_Grodno", target: "seniority_level_A2", value: 50},
-
-        {source: "city_Brest", target: "seniority_level_A2", value: 23},
-
-
-        {source: "seniority_level_A2", target: "english_level_B1", value: 765},
-        {source: "seniority_level_A2", target: "english_level_B2", value: 450},
-        {source: "seniority_level_A2", target: "english_level_C1", value: 105},
-        {source: "seniority_level_A2", target: "english_level_C2", value: 17},
+        {source: "seniority_level_A2", target: "english_level_B1", value: 657},
+        {source: "seniority_level_A2", target: "english_level_B2", value: 387},
+        {source: "seniority_level_A2", target: "english_level_C1", value: 92},
+        {source: "seniority_level_A2", target: "english_level_C2", value: 14},
     ]
 };
