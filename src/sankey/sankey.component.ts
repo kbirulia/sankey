@@ -1,7 +1,6 @@
 import * as d3 from "d3";//todo check minimal import
 import {IGraph, IGroups, ILink, INode, IPickedColors, TSvgSelection} from "./sankey.model";
 import {
-    colorsMap,
     nodePadding, nodeWidth,
     NodeSide,
     sidePaddingByGroup,

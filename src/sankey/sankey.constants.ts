@@ -15,12 +15,6 @@ export const textPositionsByGroup = {
     4: [NodeSide.left, NodeSide.left, NodeSide.right, NodeSide.right]
 };
 
-export const colorsMap = {
-    name_label: '#9b9b9b',
-    count_label: '#5e40bf',
-    default: '#373a3c'
-};
-
 export const nodePadding = 8;
 
 export const nodeWidth = 24;
