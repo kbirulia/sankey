@@ -276,13 +276,20 @@ export default class SankeyComponent {
             .classed("link", true)
             .attr("d", this.curveLink)
             .attr("fill", link => this.getColor((link.source as INode).id))
-            .attr("opacity", 0.5);
+            .attr("opacity", 0.5)
+            .append("title")
+            .text(d => `${d.source.name} -> ${d.target.name} ${d.value}`);
 
         existsLinks
             .transition()
             .duration(this._duration)
             .attr("d", this.curveLink)
             .attr("opacity", 0.5);
+
+        existsLinks
+            .selectAll('title')
+            .data(d => [d])
+            .text(d => `${d.source.name} -> ${d.target.name} ${d.value}`);
     }
 
     private curveLink(link: ILink): string {
