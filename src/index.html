@@ -10,10 +10,27 @@
         }
         html, body {
             height: 100%;
+            font-size: 12px;
+            color: "#373a3c";
+            line-height: 1.5;
         }
         #sankey {
             height: 100%;
-            overflow: hidden;
+            width: 100%;
+            font-size: .75rem;
+            overflow: auto;
+        }
+        .bar {
+            shape-rendering: crispEdges;
+        }
+
+        .selected .bar {
+            stroke: #9b9b9b;
+            stroke-width: .125rem;
+        }
+
+        .selected .connection-label {
+            font-weight: bolder;
         }
     </style>
 </head>

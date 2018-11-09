@@ -1,122 +1,235 @@
-import * as d3 from "d3"; //todo check minimal import
-import {
-    IDetails,
-    IGraph, INode,
-    IPickedColors,
-    ISankeyGraph,
-    ISankeyNode,
-    SvgSelection
-} from "./sankey.model";
-import * as d3_sankey from "d3-sankey";
-import {ConnectionsDiagramHelper} from "../color";
-import {sidePaddingMap} from "./sankey.constants";
+import { map } from "d3-collection";
+import { sum, max } from "d3-array";
+import { IDimensions, IGraph, IGroups, ILink, INode } from "./sankey.model";
+import {ascendingBy, descendingBy} from "../utils/descendingBy";
+import { groupByKey } from "../utils/groupByKey";
+import {minNodeHeight} from "./sankey.constants";
 
-export default class Sankey {
+export class Sankey {
+    private _graph: IGraph;
+    private _groupCount: number;
+    private _nodeWidth: number = 24;
+    private _minNodeHeigth: number = 2;
+    private _dimensions: IDimensions = {
+        x0: 0,
+        x1: 0,
+        y0: 0,
+        y1: 0
+    };
+    private _nodePadding: number = 8;
+    private _fitToScreen: boolean;
 
-    private svg: SvgSelection;
-    private width: number;
-    private height: number;
-    private graph: ISankeyGraph;
-    private colors: string[];
-    private pickedColors: IPickedColors = {};
-    private nodePadding: number = 4;
-
-    constructor(graph: IGraph, private details: IDetails, node: Element ) {
-        this.width = node.clientWidth;
-        this.height = node.clientHeight;
-        this.createSVG(node);
-        this.graph = this.createGraph(graph);
-        this.colors = ConnectionsDiagramHelper.generatePalit();
+    constructor(graph: IGraph) {
+        this._groupCount = Object.keys(graph.groups).length;
+        this._graph = JSON.parse(JSON.stringify(graph));
     }
 
-    private createSVG(node: Element) {
-        this.svg = d3.select(node).append('svg');
-
-        this.svg.attr("width", this.width)
-            .attr("height", this.height)
+    get groups(): IGroups {
+        return this._graph.groups;
     }
 
-    private createGraph(data: IGraph): ISankeyGraph {
-        const groupCount = this.getGroupCount();
-        const sidePadding = sidePaddingMap[groupCount];
-
-        return <ISankeyGraph>d3_sankey.sankey()
-            .extent([
-                [sidePadding, this.nodePadding],
-                [ this.width - 2 * sidePadding, this.height - 2 * this.nodePadding]])
-            .nodeId((d: ISankeyNode) => d.id)
-            .nodeAlign(d3_sankey.sankeyCenter)(data);
+    get nodes(): INode[] {
+        return this._graph.nodes;
     }
 
-    private getGroupCount() {
-        return Object.keys(this.details).reduce((accumulator, nodeId) => {
-            const groupName = nodeId.substr(0, nodeId.lastIndexOf('_'));
-            if (accumulator.indexOf(groupName) < 0) {
-                accumulator.push(groupName);
-            }
-
-            return accumulator;
-        }, []).length;
+    get links(): ILink[] {
+        return this._graph.links;
     }
 
-    private getColor(nodeId: string): string {
-        if (this.pickedColors[nodeId]) {
-            return this.pickedColors[nodeId];
+    public getNodePadding(): number {
+        return this._nodePadding;
+    }
+
+    public getDimensions(): IDimensions {
+        return this._dimensions;
+    }
+
+    public getNodeWidth(): number {
+        return this._nodeWidth;
+    }
+
+    public nodeWidth(value: number): Sankey {
+        this._nodeWidth = value;
+
+        return this;
+    }
+
+    public minNodeHeight(value: number): Sankey {
+        this._minNodeHeigth = value;
+
+        return this;
+    }
+
+    public extent(dimensions: Partial<IDimensions>): Sankey {
+        this._dimensions = <IDimensions>{
+            ...this._dimensions,
+            ...dimensions
+        };
+
+        return this;
+    }
+    public nodePadding(padding: number): Sankey {
+        this._nodePadding = padding;
+
+        return this;
+    }
+
+    public compute(fitToScreen: boolean): void {
+        this._fitToScreen = fitToScreen;
+        this.computeNodes();
+        this.computeNodeLinks();
+        this.computeLinks();
+    }
+
+    public cloneConfig(sankey: Sankey): void {
+        this.nodePadding(sankey.getNodePadding())
+            .nodeWidth(sankey.getNodeWidth())
+            .extent(sankey.getDimensions())
+    }
+
+    private getGroups(): INode[][] {
+        return <INode[][]>groupByKey(this.nodes, 'depth');
+    }
+
+    private computeNodes(): void {
+        const {nodes, groups} = this._graph;
+        const { x0, x1 } = this._dimensions;
+
+        const chartWidth = x1 - x0;
+
+        const linkNodeWidth = (chartWidth - this._nodeWidth) / (this._groupCount - 1);
+
+        nodes.forEach(node => {
+            const group = groups[node.group];
+            node.depth = group.index;
+            node.percentage = node.value / group.value;
+            node.sourceLinks = [];
+            node.targetLinks = [];
+            node.x = x0 + node.depth * linkNodeWidth;
+            node.width = this._nodeWidth;
+        });
+
+        this.computeNodesY()
+    }
+
+    private computeNodesY(): void {
+        const groups = this.getGroups();
+        if (this._fitToScreen) {
+            //todo others
+            this.computeNodesYByHeight(groups);
+        } else {
+            this.computeNodesYFull(groups)
         }
 
-        const color = this.colors.pop();
-        this.pickedColors[nodeId] = color;
-
-        return color;
     }
 
-    drawNodes() {
-        this.svg.append("g")
-            .classed("nodes", true)
-            .selectAll("rect")
-            .data(this.graph.nodes)
-            .enter()
-            .append("rect")
-            .classed("node", true)
-            .attr("x", d => d.x0)
-            .attr("y", d => d.y0)
-            .attr("width", d => d.x1 - d.x0)
-            .attr("height", d => d.y1 - d.y0)
-            .attr("fill", node => this.getColor(node.id))
-            .attr("opacity", 0.8);
+    private computeNodesYByHeight(groups: INode[][]) {
+        const { y1, y0 } = this._dimensions;
+        const chartHeight = y1 - y0;
+
+        groups.forEach(nodes => {
+            let leftHeight = chartHeight - (nodes.length - 1) * this._nodePadding;
+            let leftPercentage = 1;
+
+            ascendingBy(nodes.slice(), 'value')
+                .forEach(node => {
+                    const nodeHeight = Math.max(leftHeight * node.percentage / leftPercentage, minNodeHeight);
+                    node.height = nodeHeight;
+                    leftHeight -= nodeHeight;
+                    leftPercentage -= node.percentage;
+                });
+
+            let y = y0;
+            nodes.forEach(node => {
+                node.y = y;
+                y = node.y + node.height + this._nodePadding;
+            })
+
+        });
     }
 
-    drawLinks() {
-        this.svg.append("g")
-            .classed("links", true)
-            .selectAll("path")
-            .data(this.graph.links)
-            .enter()
-            .append("path")
-            .classed("link", true)
-            .attr("d", d3_sankey.sankeyLinkHorizontal())
-            .attr("fill", "none")
-            .attr("stroke", link => this.getColor(link.source.id))
-            .attr("stroke-width", d => d.width)
-            .attr("opacity", 0.3);
+    private computeNodesYFull(sortedGroups: INode[][]) {
+        const maxNodesInGroup = max(sortedGroups, nodes => nodes.length);
+
+        const maxGroupIndex = sortedGroups.findIndex(group => group.length === maxNodesInGroup);
+        const maxGroup = sortedGroups.splice(maxGroupIndex, 1)[0];
+
+        const { y0 } = this._dimensions;
+
+            const minHeight = this._minNodeHeigth * maxGroup.length;
+            const percentagePerPx = 1 / minHeight;
+
+        descendingBy(maxGroup.slice(), 'value')
+            .forEach(node => {
+                node.height =  Math.max(node.percentage / percentagePerPx, minNodeHeight);
+            });
+
+        let y = y0;
+        maxGroup
+            .forEach(node => {
+                node.y = y;
+                y = node.y + node.height + this._nodePadding;
+            });
+
+        y -= this._nodePadding;
+
+        if (y < this._dimensions.y1) {
+            this._dimensions.y1 = y;
+            this.computeNodesYByHeight([...sortedGroups, maxGroup]);
+        } else {
+            this._dimensions.y1 = y;
+            this.computeNodesYByHeight(sortedGroups);
+        }
     }
 
-    drawText() {
-        this.svg.append("g")
-            .classed("text", true)
-            .selectAll("text")
-            .data(this.graph.nodes)
-            .enter()
-            .append("text")
-            .classed("node", true)
-            .attr("x", d => d.x0)
-            .attr("y", d => d.y0 + 15)
-            .text(node => `${this.details[node.id].name} (${this.details[node.id].value})`);
+    private computeNodeLinks(): void {
+        const {nodes, links} = this._graph;
+
+        const nodeMap = map(nodes, node => node.id);
+        links.forEach(link => {
+            link.id = `${link.source}_${link.target}`;
+            const source = link.source = nodeMap.get(<string>link.source);
+            const target = link.target = nodeMap.get(<string>link.target);
+            source.sourceLinks.push(link);
+            target.targetLinks.push(link);
+        });
     }
 
-    draw() {
-        this.drawNodes();
-        this.drawLinks();
-        this.drawText();
+    private computeLinks(): void {
+        const { nodes } = this._graph;
+
+        nodes.forEach(node => {
+            descendingBy(node.sourceLinks, 'value');
+            descendingBy(node.targetLinks, 'value');
+            const sourceX = node.x + node.width;
+            const targetX = node.x;
+
+            let sourceY = node.y;
+            let targetY = node.y;
+            const nodeHeight = node.height;
+
+            const sourceSum = sum(node.sourceLinks, link => link.value);
+            const targetSum = sum(node.targetLinks, link => link.value);
+
+            node.sourceLinks.forEach(link => {
+                const linkHeight = link.value / sourceSum * nodeHeight;
+                link.x0 = sourceX;
+                link.y0 = sourceY;
+
+                sourceY = link.y0 + linkHeight;
+
+                link.y1 = sourceY;
+            });
+
+            node.targetLinks.forEach(link => {
+                const linkHeight = link.value / targetSum * nodeHeight;
+                link.x1 = targetX;
+                link.y2 = targetY;
+
+                targetY = link.y2 + linkHeight;
+
+                link.y3 = targetY;
+            })
+        })
     }
 }
