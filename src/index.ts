@@ -1,4 +1,4 @@
-import {data} from './data/data';
+import {data} from './data/realBigData';
 import { SankeyComponent } from "./sankey"
 
 const node = document.getElementById("sankey");

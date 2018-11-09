@@ -4,21 +4,19 @@ import {
     nodePadding, nodeWidth,
     NodeSide,
     sidePaddingByGroup,
-    textPositionsByGroup
+    textPositionsByGroup, minNodeHeight
 } from "./sankey.constants";
 import {ConnectionsDiagramHelper} from "../utils/color";
 import { Sankey } from "./sankey";
-import { selectedMinsk } from "../data/selectedMinsk";
-import { selectedMinskA2 } from "../data/selectedMinskA2";
-import { selectedA2 } from "../data/selectedA2";
-import {selectedMinskA2A3} from "../data/selectedMinskA2A3";
+import { selectedMinskV1 } from "../data/selectedMinsk-v1";
+import { selectedMinskA2A3V1 } from "../data/selectedMinskA2A3-v1";
+import { selectedMinskA2A3A2B1B2V1 } from "../data/selectedMinskA2A3A2B1B2-v1";
 
 //todo remove(temporary mock)
 const mocks = {
-    "city_Minsk": selectedMinsk,
-    "seniority_level_A2": selectedA2,
-    "city_Minsk_seniority_level_A2": selectedMinskA2,
-    "city_Minsk_seniority_level_A2_seniority_level_A3": selectedMinskA2A3,
+    "city_600100000009449": selectedMinskV1,
+    "city_600100000009449_level_A2_level_A3": selectedMinskA2A3V1,
+    "cefr_A2_cefr_B1_cefr_B2_city_600100000009449_level_A2_level_A3": selectedMinskA2A3A2B1B2V1,
 };
 
 export default class SankeyComponent {
@@ -35,10 +33,12 @@ export default class SankeyComponent {
     private _selectedSankey: Sankey | null = null;
     private _selectedNodes: string[] = [];
     private _duration: number = 500;
+    private _fitToScreen: boolean = true;
 
     constructor(graph: IGraph, node: Element) {
         this._width = node.clientWidth;
         this._height = node.clientHeight;
+
         this.createSVG(node);
 
         this._sankey = new Sankey(graph);
@@ -46,6 +46,8 @@ export default class SankeyComponent {
         this.initSankeyDimensions();
 
         this.compute();
+
+        this.applyHeight();
     }
 
     get groups(): IGroups {
@@ -57,12 +59,24 @@ export default class SankeyComponent {
     get nodes(): INode[] {
         return this._selectedSankey
             ? this._selectedSankey.nodes
-            : this._sankey.nodes;    }
+            : this._sankey.nodes;
+    }
 
     get links(): ILink[] {
         return this._selectedSankey
             ? this._selectedSankey.links
-            : this._sankey.links;    }
+            : this._sankey.links;
+    }
+
+    private applyHeight(): void {
+        if (!this._fitToScreen) {
+            const dimensions = this._sankey.getDimensions();
+            this._height = dimensions.y1 + this._nodePadding;
+        }
+
+        this._svg
+            .attr("height", this._height);
+    }
 
     private initSankeyDimensions(): void {
         this._groupCount = Object.keys(this.groups).length;
@@ -71,6 +85,7 @@ export default class SankeyComponent {
         this._sankey
             .nodePadding(nodePadding)
             .nodeWidth(nodeWidth)
+            .minNodeHeight(minNodeHeight)
             .extent({
                 x0: this._sidePadding,
                 y0: this._nodePadding,
@@ -80,17 +95,14 @@ export default class SankeyComponent {
     }
 
     private compute(): void {
-        this._sankey.compute();
+        this._sankey.compute(this._fitToScreen);
     }
 
     private createSVG(node: Element): void {
         this._svg = d3.select(node)
             .append("svg")
-            .classed("diagram", true);
-
-        this._svg
-            .attr("width", this._width)
-            .attr("height", this._height);
+            .classed("diagram", true)
+            .attr("width", this._width);
 
         this._svg
             .selectAll('g')
@@ -131,10 +143,15 @@ export default class SankeyComponent {
         nodeGroups.exit().remove();
         nodeGroups.enter()
             .append("g")
-            .classed("bar-group", true);
+            .classed("bar-group", true)
+            .classed('selected', (d) => {
+                return this._selectedNodes.includes(d.id)
+            });
 
         nodeGroups
-            .classed('selected', (d) => this._selectedNodes.includes(d.id));
+            .classed('selected', (d) => {
+                return this._selectedNodes.includes(d.id)
+            });
 
         const bars = nodeBlock
             .selectAll('g')
@@ -147,19 +164,19 @@ export default class SankeyComponent {
             .attr("data-id", node => node.id)
             .attr("data-group", node => node.group)
             .attr("fill", node => this.getColor(node.id))
-            .attr("x", node => node.x0)
-            .attr("y", node => node.y0)
-            .attr("width", node => node.x1 - node.x0)
-            .attr("height", node => node.y1 - node.y0)
+            .attr("x", node => node.x)
+            .attr("y", node => node.y)
+            .attr("width", node => node.width)
+            .attr("height", node => node.height)
             .append("title")
             .text(node => node.name);
         bars
             .transition()
             .duration(this._duration)
-            .attr("x", node => node.x0)
-            .attr("y", node => node.y0)
-            .attr("width", node => node.x1 - node.x0)
-            .attr("height", node => node.y1 - node.y0);
+            .attr("x", node => node.x)
+            .attr("y", node => node.y)
+            .attr("width", node => node.width)
+            .attr("height", node => node.height)
 
         const existsLabel = nodeBlock
             .selectAll('g')
@@ -183,7 +200,7 @@ export default class SankeyComponent {
         label.attr("x", function (node){
                 return self.getLabelX(node, <SVGTSpanElement>this);
             })
-            .attr("y", d => d.y0 + (d.y1 - d.y0)/2 + 5);
+            .attr("y", d => d.y + (d.height)/2 + 5);
 
         existsLabel
             .transition()
@@ -191,7 +208,7 @@ export default class SankeyComponent {
             .attr("x", function (node){
                 return self.getLabelX(node, <SVGTSpanElement>this);
             })
-            .attr("y", d => d.y0 + (d.y1 - d.y0)/2 + 5);
+            .attr("y", d => d.y + (d.height)/2 + 5);
 
         existsLabel
             .selectAll('.count-label')
@@ -204,8 +221,8 @@ export default class SankeyComponent {
         const side = textPositionsByGroup[this._groupCount][node.depth];
 
         return side === NodeSide.left
-            ? node.x0 - text.getComputedTextLength() - 5
-            : node.x1 + 5;
+            ? node.x - text.getComputedTextLength() - 5
+            : node.x + node.width + 5;
     }
 
     private getLabelCount(node): string {
@@ -238,9 +255,11 @@ export default class SankeyComponent {
         const nodeIds = this._selectedNodes.sort();
 
         const key = nodeIds.join('_');
+        console.log(key);
 
         const selectedData = mocks[key];
         if (!selectedData) {
+            this.draw();
             return;
         }
 
@@ -250,7 +269,7 @@ export default class SankeyComponent {
 
         this._selectedSankey.cloneConfig(this._sankey);
 
-        this._selectedSankey.compute();
+        this._selectedSankey.compute(this._fitToScreen);
 
         this.draw();
     }
@@ -295,8 +314,18 @@ export default class SankeyComponent {
     private curveLink(link: ILink): string {
         const x = [link.x0, link.x1];
 
-        const sourceY = [link.y0, link.y1];
-        const targetY = [link.y2, link.y3];
+        const sourceY = [
+            link.y1 - link.y0 >= minNodeHeight
+                ? link.y0
+                : link.y1 - 1,
+            link.y1
+        ];
+        const targetY = [
+            link.y3 - link.y2 >= minNodeHeight
+                ? link.y2
+                : link.y3 - 1,
+            link.y3
+        ];
 
         const y = <[number, number][]>[sourceY, sourceY, targetY, targetY];
 
@@ -312,7 +341,7 @@ export default class SankeyComponent {
     }
 
     public draw(): void {
-        this.drawNodes();
         this.drawLinks();
+        this.drawNodes();
     }
 }

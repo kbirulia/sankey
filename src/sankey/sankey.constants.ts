@@ -17,4 +17,6 @@ export const textPositionsByGroup = {
 
 export const nodePadding = 8;
 
-export const nodeWidth = 24;
+export const nodeWidth = 50;
+
+export const minNodeHeight = 2;

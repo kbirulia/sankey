@@ -1,18 +1,23 @@
 import { map } from "d3-collection";
+import { sum, max } from "d3-array";
 import { IDimensions, IGraph, IGroups, ILink, INode } from "./sankey.model";
-import { descendingBy } from "../utils/descendingBy";
+import {ascendingBy, descendingBy} from "../utils/descendingBy";
+import { groupByKey } from "../utils/groupByKey";
+import {minNodeHeight} from "./sankey.constants";
 
 export class Sankey {
     private _graph: IGraph;
     private _groupCount: number;
     private _nodeWidth: number = 24;
+    private _minNodeHeigth: number = 2;
     private _dimensions: IDimensions = {
         x0: 0,
         x1: 0,
         y0: 0,
-        y1: 0,
+        y1: 0
     };
     private _nodePadding: number = 8;
+    private _fitToScreen: boolean;
 
     constructor(graph: IGraph) {
         this._groupCount = Object.keys(graph.groups).length;
@@ -49,8 +54,17 @@ export class Sankey {
         return this;
     }
 
-    public extent(dimensions: IDimensions): Sankey {
-        this._dimensions = dimensions;
+    public minNodeHeight(value: number): Sankey {
+        this._minNodeHeigth = value;
+
+        return this;
+    }
+
+    public extent(dimensions: Partial<IDimensions>): Sankey {
+        this._dimensions = <IDimensions>{
+            ...this._dimensions,
+            ...dimensions
+        };
 
         return this;
     }
@@ -60,7 +74,8 @@ export class Sankey {
         return this;
     }
 
-    public compute(): void {
+    public compute(fitToScreen: boolean): void {
+        this._fitToScreen = fitToScreen;
         this.computeNodes();
         this.computeNodeLinks();
         this.computeLinks();
@@ -72,18 +87,8 @@ export class Sankey {
             .extent(sankey.getDimensions())
     }
 
-    private getSortedGroups(): INode[][] {
-        const groups = this._graph.nodes
-            .reduce((columns, node) => {
-                (columns[node.depth] = columns[node.depth] || []).push(node);
-                return columns;
-            }, []);
-
-        groups.forEach((column: INode[]) => {
-            descendingBy(column, 'value');
-        });
-
-        return groups;
+    private getGroups(): INode[][] {
+        return <INode[][]>groupByKey(this.nodes, 'depth');
     }
 
     private computeNodes(): void {
@@ -100,29 +105,73 @@ export class Sankey {
             node.percentage = node.value / group.value;
             node.sourceLinks = [];
             node.targetLinks = [];
-            node.x0 = x0 + node.depth * linkNodeWidth;
-            node.x1 = node.x0 + this._nodeWidth;
+            node.x = x0 + node.depth * linkNodeWidth;
+            node.width = this._nodeWidth;
         });
 
         this.computeNodesY()
     }
 
     private computeNodesY(): void {
-        const { y1, y0 } = this._dimensions;
+        const groups = this.getGroups();
+        if (this._fitToScreen) {
+            //todo others
+            this.computeNodesYByHeight(groups);
+        } else {
+            this.computeNodesYFull(groups)
+        }
 
+    }
+
+    private computeNodesYByHeight(groups: INode[][]) {
+        const { y1, y0 } = this._dimensions;
         const chartHeight = y1 - y0;
 
-        const sortedGroups = this.getSortedGroups();
-
-        sortedGroups.forEach(nodes => {
+        groups.forEach(nodes => {
             const commonNodeHeight = chartHeight - (nodes.length - 1) * this._nodePadding;
-            let y = y0;
-            nodes.forEach(node => {
-                node.y0 = y;
-                node.y1 = node.y0 + commonNodeHeight * node.percentage;
-                y = node.y1 + this._nodePadding;
-            });
+            let y = y1;
+            let leftHeight = commonNodeHeight;
+            let leftPercentage= 1;
+            ascendingBy(nodes, 'value')
+                .forEach(node => {
+                    const nodeHeight = Math.max(leftHeight * node.percentage / leftPercentage, minNodeHeight);
+                    node.y = y - nodeHeight;
+                    node.height = nodeHeight;
+                    y = node.y - this._nodePadding;
+                    leftHeight -= nodeHeight;
+                    leftPercentage -= node.percentage;
+                });
         });
+    }
+
+    private computeNodesYFull(sortedGroups: INode[][]) {
+        const maxNodesInGroup = max(sortedGroups, nodes => nodes.length);
+
+        const maxGroupIndex = sortedGroups.findIndex(group => group.length === maxNodesInGroup);
+        const maxGroup = sortedGroups.splice(maxGroupIndex, 1)[0];
+
+        const { y0 } = this._dimensions;
+
+            const minHeight = this._minNodeHeigth * maxGroup.length;
+            const percentagePerPx = 1 / minHeight;
+            let y = y0;
+
+        descendingBy(maxGroup, 'value').forEach(node => {
+                const nodeHeight = Math.max(node.percentage / percentagePerPx, minNodeHeight);
+                node.y = y;
+                node.height = nodeHeight;
+                y = node.y + nodeHeight + this._nodePadding;
+            });
+
+            y -= this._nodePadding;
+
+        if (y < this._dimensions.y1) {
+            this._dimensions.y1 = y;
+            this.computeNodesYByHeight([...sortedGroups, maxGroup]);
+        } else {
+            this._dimensions.y1 = y;
+            this.computeNodesYByHeight(sortedGroups);
+        }
     }
 
     private computeNodeLinks(): void {
@@ -144,15 +193,18 @@ export class Sankey {
         nodes.forEach(node => {
             descendingBy(node.sourceLinks, 'value');
             descendingBy(node.targetLinks, 'value');
-            const sourceX = node.x1;
-            const targetX = node.x0;
+            const sourceX = node.x + node.width;
+            const targetX = node.x;
 
-            let sourceY = node.y0;
-            let targetY = node.y0;
-            const nodeHeight = node.y1 - node.y0;
+            let sourceY = node.y;
+            let targetY = node.y;
+            const nodeHeight = node.height;
+
+            const sourceSum = sum(node.sourceLinks, link => link.value);
+            const targetSum = sum(node.targetLinks, link => link.value);
 
             node.sourceLinks.forEach(link => {
-                const linkHeight = link.value / node.value * nodeHeight;
+                const linkHeight = link.value / sourceSum * nodeHeight;
                 link.x0 = sourceX;
                 link.y0 = sourceY;
 
@@ -162,7 +214,7 @@ export class Sankey {
             });
 
             node.targetLinks.forEach(link => {
-                const linkHeight = link.value / node.value * nodeHeight;
+                const linkHeight = link.value / targetSum * nodeHeight;
                 link.x1 = targetX;
                 link.y2 = targetY;
 

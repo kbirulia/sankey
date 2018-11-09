@@ -8,10 +8,10 @@ export interface INode {
     sourceLinks?: any[];
     targetLinks?: any[];
     depth?: number;
-    x0?: number;
-    y0?: number;
-    x1?: number;
-    y1?: number;
+    x?: number;
+    width?: number;
+    y?: number;
+    height?: number;
     percentage?: number;
 }
 
