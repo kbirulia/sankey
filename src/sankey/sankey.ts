@@ -128,19 +128,23 @@ export class Sankey {
         const chartHeight = y1 - y0;
 
         groups.forEach(nodes => {
-            const commonNodeHeight = chartHeight - (nodes.length - 1) * this._nodePadding;
-            let y = y1;
-            let leftHeight = commonNodeHeight;
-            let leftPercentage= 1;
-            ascendingBy(nodes, 'value')
+            let leftHeight = chartHeight - (nodes.length - 1) * this._nodePadding;
+            let leftPercentage = 1;
+
+            ascendingBy(nodes.slice(), 'value')
                 .forEach(node => {
                     const nodeHeight = Math.max(leftHeight * node.percentage / leftPercentage, minNodeHeight);
-                    node.y = y - nodeHeight;
                     node.height = nodeHeight;
-                    y = node.y - this._nodePadding;
                     leftHeight -= nodeHeight;
                     leftPercentage -= node.percentage;
                 });
+
+            let y = y0;
+            nodes.forEach(node => {
+                node.y = y;
+                y = node.y + node.height + this._nodePadding;
+            })
+
         });
     }
 
@@ -154,16 +158,20 @@ export class Sankey {
 
             const minHeight = this._minNodeHeigth * maxGroup.length;
             const percentagePerPx = 1 / minHeight;
-            let y = y0;
 
-        descendingBy(maxGroup, 'value').forEach(node => {
-                const nodeHeight = Math.max(node.percentage / percentagePerPx, minNodeHeight);
-                node.y = y;
-                node.height = nodeHeight;
-                y = node.y + nodeHeight + this._nodePadding;
+        descendingBy(maxGroup.slice(), 'value')
+            .forEach(node => {
+                node.height =  Math.max(node.percentage / percentagePerPx, minNodeHeight);
             });
 
-            y -= this._nodePadding;
+        let y = y0;
+        maxGroup
+            .forEach(node => {
+                node.y = y;
+                y = node.y + node.height + this._nodePadding;
+            });
+
+        y -= this._nodePadding;
 
         if (y < this._dimensions.y1) {
             this._dimensions.y1 = y;

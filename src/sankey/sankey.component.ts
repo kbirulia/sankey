@@ -33,7 +33,7 @@ export default class SankeyComponent {
     private _selectedSankey: Sankey | null = null;
     private _selectedNodes: string[] = [];
     private _duration: number = 500;
-    private _fitToScreen: boolean = true;
+    private _fitToScreen: boolean = false;
 
     constructor(graph: IGraph, node: Element) {
         this._width = node.clientWidth;
