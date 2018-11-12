@@ -1,6 +1,6 @@
-import { map } from "d3-collection";
+import {Map, map} from "d3-collection";
 import { sum, max } from "d3-array";
-import { IDimensions, IGraph, IGroups, ILink, INode } from "./sankey.model";
+import {IDimensions, IExcludeFromOthers, IGraph, IGroups, ILink, INode} from "./sankey.model";
 import {ascendingBy, descendingBy} from "../utils/descendingBy";
 import { groupByKey } from "../utils/groupByKey";
 import {minNodeHeight} from "./sankey.constants";
@@ -18,6 +18,7 @@ export class Sankey {
     };
     private _nodePadding: number = 8;
     private _fitToScreen: boolean;
+    private _excludeFromOthers: IExcludeFromOthers = {};
 
     constructor(graph: IGraph) {
         this._groupCount = Object.keys(graph.groups).length;
@@ -34,6 +35,10 @@ export class Sankey {
 
     get links(): ILink[] {
         return this._graph.links;
+    }
+
+    get excludeFromOthers(): IExcludeFromOthers {
+        return this._excludeFromOthers;
     }
 
     public getNodePadding(): number {
@@ -128,7 +133,8 @@ export class Sankey {
         const chartHeight = y1 - y0;
 
         groups.forEach(nodes => {
-            let leftHeight = chartHeight - (nodes.length - 1) * this._nodePadding;
+            const paddingSum = (nodes.length - 1) * this._nodePadding;
+            let leftHeight = chartHeight - paddingSum;
             let leftPercentage = 1;
 
             ascendingBy(nodes.slice(), 'value')
@@ -139,13 +145,100 @@ export class Sankey {
                     leftPercentage -= node.percentage;
                 });
 
+            const nodeSum = Math.floor(sum(nodes, node => node.height) + paddingSum);
+
+            if(nodeSum > chartHeight) {
+                nodes = this.reculcGroupWithOthers(nodes);
+            }
+
             let y = y0;
             nodes.forEach(node => {
                 node.y = y;
                 y = node.y + node.height + this._nodePadding;
-            })
-
+            });
         });
+    }
+
+    private reculcGroupWithOthers(nodes): INode[] {
+        const { y1, y0 } = this._dimensions;
+        const chartHeight = y1 - y0;
+        const anyNode = nodes[0];
+
+        let counted = 0;
+        let nodesHeight = chartHeight;
+
+        const nodeOthers = <INode>{
+            id: `${anyNode.group}_others`,
+            name: 'Others',
+            group: anyNode.group,
+            value: this.groups[anyNode.group].value,
+            depth: this.groups[anyNode.group].index,
+            x: anyNode.x,
+            width: anyNode.width,
+            height: nodesHeight,
+            percentage: 1,
+            sourceLinks: [],
+            targetLinks: []
+        };
+
+        while(counted <= nodes.length) {
+            counted++;
+
+            nodesHeight = chartHeight - this._nodePadding * counted;
+            nodeOthers.percentage = 1;
+            nodeOthers.height = nodesHeight;
+            nodeOthers.value = this.groups[anyNode.group].value;
+
+            for(let i = 0; i < counted; i++) {
+                const node = nodes[i];
+                node.height = Math.max(nodesHeight * node.percentage, minNodeHeight);
+
+                nodeOthers.percentage -= node.percentage;
+                nodeOthers.height -= node.height;
+                nodeOthers.value -= node.value;
+            }
+
+            const othersPlannedHeight = Math.floor(nodeOthers.percentage * nodesHeight);
+
+            if (Math.floor(nodeOthers.height) < othersPlannedHeight) {
+                break;
+            }
+        }
+
+        nodes.splice(counted, nodes.length - counted);
+
+        this._excludeFromOthers[anyNode.group] = nodes.map(node => node.id);
+
+
+        return this.replaceOthersNodes(nodes, nodeOthers, anyNode.group);
+    }
+
+    private replaceOthersNodes(nodes: INode[], others: INode, group: string): INode[] {
+        nodes.push(others);
+
+        const mapNodes = map(nodes, node => node.id);
+        let indexForOthers = undefined;
+
+        this._graph.nodes = this._graph.nodes.filter((node, index) => {
+            if (node.group === group) {
+                if (!mapNodes.get(node.id)) {
+                    indexForOthers = indexForOthers ? indexForOthers : index;
+                    return false;
+                }
+            }
+
+            return true;
+        });
+
+        this._graph.nodes.splice(indexForOthers, 0, others);
+
+        return nodes;
+    }
+
+    private removeOthersLinks(nodeMap: Map<INode>) {
+        this._graph.links = this._graph.links.filter(link => {
+            return nodeMap.get(<string>link.source) && nodeMap.get(<string>link.target)
+        })
     }
 
     private computeNodesYFull(sortedGroups: INode[][]) {
@@ -184,14 +277,27 @@ export class Sankey {
 
     private computeNodeLinks(): void {
         const {nodes, links} = this._graph;
-
         const nodeMap = map(nodes, node => node.id);
+
+        if (Object.keys(this._excludeFromOthers).length) {
+            this.removeOthersLinks(nodeMap);
+        }
+
         links.forEach(link => {
             link.id = `${link.source}_${link.target}`;
-            const source = link.source = nodeMap.get(<string>link.source);
-            const target = link.target = nodeMap.get(<string>link.target);
-            source.sourceLinks.push(link);
-            target.targetLinks.push(link);
+
+            const source = nodeMap.get(<string>link.source);
+            if (source) {
+                link.source = source;
+                source.sourceLinks.push(link);
+            }
+
+            const target = nodeMap.get(<string>link.target);
+            if(target) {
+                link.target = target;
+                target.targetLinks.push(link);
+
+            }
         });
     }
 

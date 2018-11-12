@@ -33,7 +33,7 @@ export default class SankeyComponent {
     private _selectedSankey: Sankey | null = null;
     private _selectedNodes: string[] = [];
     private _duration: number = 500;
-    private _fitToScreen: boolean = false;
+    private _fitToScreen: boolean = true;
 
     constructor(graph: IGraph, node: Element) {
         this._width = node.clientWidth;
@@ -106,7 +106,7 @@ export default class SankeyComponent {
 
         this._svg
             .selectAll('g')
-            .data(['nodes', 'links'])
+            .data(['links', 'nodes'])
             .enter()
             .append('g')
             .attr('class', d => d);
@@ -176,7 +176,7 @@ export default class SankeyComponent {
             .attr("x", node => node.x)
             .attr("y", node => node.y)
             .attr("width", node => node.width)
-            .attr("height", node => node.height)
+            .attr("height", node => node.height);
 
         const existsLabel = nodeBlock
             .selectAll('g')

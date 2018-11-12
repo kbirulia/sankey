@@ -57,3 +57,8 @@ export type TSvgSelection = Selection<BaseType, {}, null, undefined>;
 export interface IPickedColors {
     [key: string]: string
 }
+
+export interface IExcludeFromOthers {
+    [key: string]: string[]
+}
+
